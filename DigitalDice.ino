@@ -1,6 +1,6 @@
-//Have calculate add str value to roll
-//Ask about RB's helper function
- //Will most likely have to use my own
+//120B Final project
+//Help from the following resources
+//TA: RB
 #include "Timer.h"
 
 //States
@@ -14,15 +14,6 @@ int digitPins[2] = {13, 12};
 int buzzerPin = 2;
 int x_value = 0;
 int y_value = 0;
-/*
-struct task{
-  int state; //Track current task's state
-  unsigned long period; //Task's period
-  unsigned long elapsedTime; //Time since last tick
-  int (*TickFct)(int);  
-};
-*/
-//task numTasks[1];
 
 //Variables
 int first_digit = 0;
@@ -37,7 +28,7 @@ const unsigned long shiftPeriod = 50;
 
 const unsigned long timerPeriod = 10;
 
-//RB's helper function comments
+//RB's Helper function
 // gSegPins
 // An array of pins of the arduino that are connected
 // to segments a, b, c, d, e... g in that order.
@@ -195,9 +186,8 @@ void rolling_dice(){
 
 
 void setup() {
-  // put your setup code here, to run once:
   randomSeed(analogRead(A3));
-  TimerSet(timerPeriod); //this value (500) is the period in ms
+  TimerSet(timerPeriod);
   TimerOn();
   pinMode(buzzerPin, OUTPUT);
   for(int i = 0; i < 7; i++){
@@ -212,8 +202,6 @@ void setup() {
 
 void loop() {
   y_value = analogRead(A1);
-  //y_value = map(analogRead(A1), 0, 1023, 0, 5);
-  //Serial.println(y_value);
   digit_tick();
 
   if(shift_elapsedTime >= shiftPeriod){
