@@ -12,7 +12,7 @@
 //States
 enum DIGIT_STATE {FIRST_DIGIT, SECOND_DIGIT} dState = FIRST_DIGIT;
 enum THROW_STATE {WAIT_THROW, CALCULATE_THROW_STR, SET_ROLL_VALUE} tState = WAIT_THROW;
-enum SHIFT_SATE  {WAIT_SHIFT, SHIFT_NUMBERS, CALCULATE_ROLL_VALUE} sState = WAIT_SHIFT;
+enum SHIFT_SATE  {WAIT_SHIFT, SHIFT_NUMBERS, CALCULATE_ROLL_VALUE, ADD_MODIFIER} sState = WAIT_SHIFT;
 int button_value = 0;
 
 //Pins
@@ -25,6 +25,7 @@ int y_value = 0;
 int first_digit = 0;
 int second_digit = 0;
 bool has_thrown = false;
+int current_throw_str = 0;
 
 unsigned long throw_elapsedTime = 500;
 const unsigned long throwPeriod = 500;
@@ -140,8 +141,12 @@ void calculate_throw(){
         }
       else{
           cnt = 0;
-          sState = WAIT_SHIFT;
+          sState = ADD_MODIFIER;
         }
+      break;
+
+      case ADD_MODIFIER:
+      sState = WAIT_SHIFT;
       break;
     }
     
@@ -172,12 +177,28 @@ void calculate_throw(){
         second_digit = diceRoll % 10;  
       }
      break;
+
+     case ADD_MODIFIER:
+     if(diceRoll + current_throw_str >= 20){
+      diceRoll = 20;
+     }
+     else {
+        diceRoll += current_throw_str;
+        if(diceRoll < 10){
+          first_digit = 0;
+          second_digit = diceRoll % 10;  
+        }
+        else{
+          first_digit = int(diceRoll/10);
+          second_digit = diceRoll % 10;  
+        }
+     }
+     break;
     }
 }
 
 //State to calculate strength of roll
 void rolling_dice(){
-  static int current_throw_str = 0;
    switch(tState){
     case WAIT_THROW:
     if(y_value <= 599 && has_thrown == false){
@@ -203,14 +224,18 @@ void rolling_dice(){
    break;
 
    case SET_ROLL_VALUE:
-   Serial.println("Setting dice value");
+   //Serial.println("Setting dice value");
+   Serial.println("Current throw strength");
+   Serial.println(current_throw_str);
    tState = WAIT_THROW;
    break;
   }
 
   switch(tState){
     case CALCULATE_THROW_STR:
-    current_throw_str += 5;
+    if(current_throw_str < 5){
+      current_throw_str += 1;
+    }
     break;
     
     case SET_ROLL_VALUE:
