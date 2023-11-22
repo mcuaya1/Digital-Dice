@@ -11,27 +11,25 @@
 */
 //States
 enum DIGIT_STATE {FIRST_DIGIT, SECOND_DIGIT} dState = FIRST_DIGIT;
-enum THROW_STATE {WAIT_THROW, CALCULATE_THROW_STR, SET_ROLL_VALUE} tState = WAIT_THROW;
-enum SHIFT_SATE  {WAIT_SHIFT, SHIFT_NUMBERS, CALCULATE_ROLL_VALUE, ADD_MODIFIER} sState = WAIT_SHIFT;
+enum ROLLING_STATE {WAIT_THROW, CALCULATE_THROW_STR} rState = WAIT_THROW;
+enum CALCULATE_ROLL_STATE  {WAIT_ROLL, ROLLING_DICE, CALCULATE_ROLL_VALUE, ADD_MODIFIER} sState = WAIT_ROLL;
 int button_value = 0;
 
 //Pins
-int digitPins[2] = {13, 12};
+char digitPins[2] = {13, 12};
 int buzzerPin = 2;
-int x_value = 0;
-int y_value = 0;
+unsigned int yValue = 0;
 
 //Variables
-int first_digit = 0;
-int second_digit = 0;
-bool has_thrown = false;
-int current_throw_str = 0;
+char first_digit = 0;
+char second_digit = 0;
+char currentThrowStr = 0;
 
-unsigned long throw_elapsedTime = 500;
-const unsigned long throwPeriod = 500;
+unsigned long rollElapsedTimeriod = 500;
+const unsigned long rollPeriod = 500;
 
-unsigned long shift_elapsedTime = 50;
-const unsigned long shiftPeriod = 50;
+unsigned long calculateElapsedTime = 50;
+const unsigned long calculatePeriod = 50;
 
 const unsigned long timerPeriod = 10;
 
@@ -78,7 +76,7 @@ void displayNumTo7Seg(unsigned int targetNum, int digitPin) {
 }
 
 //State to handle digit LED
-void digit_tick(){
+void digitTick(){
   switch(dState){
     case FIRST_DIGIT:
     dState = SECOND_DIGIT;
@@ -107,27 +105,27 @@ void digit_tick(){
 }
 
 //State to caculate roll value
-void calculate_throw(){
+void calculate_roll(){
     static int diceRoll = 0;
     static int cnt = 0;
     switch(sState){
-      case WAIT_SHIFT:
-      if(y_value <= 599 && has_thrown == false){
+      case WAIT_ROLL:
+      if(yValue <= 599){
         Serial.println("Waiting for dice to be picked up");
-        sState = WAIT_SHIFT;
+        sState = WAIT_ROLL;
       }
-      else if(y_value > 600 && has_thrown == false){
+      else if(yValue > 600){
         Serial.println("Dice has been picked up");
-        sState = SHIFT_NUMBERS;
+        sState = ROLLING_DICE;
       }
       break;
       
-      case SHIFT_NUMBERS:
-      if(y_value > 600 && has_thrown == false){
+      case ROLLING_DICE:
+      if(yValue > 600){
        Serial.println("Waiting for release");
-       sState = SHIFT_NUMBERS;
+       sState = ROLLING_DICE;
       }
-      else if(y_value <= 599 && has_thrown == false){
+      else if(yValue <= 599){
        Serial.println("Dice has been thrown");
        sState = CALCULATE_ROLL_VALUE;
       }
@@ -146,14 +144,13 @@ void calculate_throw(){
       break;
 
       case ADD_MODIFIER:
-      sState = WAIT_SHIFT;
+      sState = WAIT_ROLL;
       break;
     }
     
     switch(sState){
-      case SHIFT_NUMBERS:
+      case ROLLING_DICE:
       diceRoll = random(1,20);
-      //Serial.println(diceRoll);
       if(diceRoll < 10){
         first_digit = 0;
         second_digit = diceRoll % 10;  
@@ -179,11 +176,11 @@ void calculate_throw(){
      break;
 
      case ADD_MODIFIER:
-     if(diceRoll + current_throw_str >= 20){
+     if(diceRoll + currentThrowStr >= 20){
       diceRoll = 20;
      }
      else {
-        diceRoll += current_throw_str;
+        diceRoll += currentThrowStr;
         if(diceRoll < 10){
           first_digit = 0;
           second_digit = diceRoll % 10;  
@@ -198,48 +195,37 @@ void calculate_throw(){
 }
 
 //State to calculate strength of roll
-void rolling_dice(){
-   switch(tState){
+void roll_dice(){
+   switch(rState){
     case WAIT_THROW:
-    if(y_value <= 599 && has_thrown == false){
+    if(yValue <= 599){
       Serial.println("Waiting for dice to be picked up");
-      tState = WAIT_THROW;
+      rState = WAIT_THROW;
     }
-    else if(y_value > 600 && has_thrown == false){
+    else if(yValue > 600){
       Serial.println("Dice has been picked up");
-      tState = CALCULATE_THROW_STR;
+      rState = CALCULATE_THROW_STR;
     }
     break;
 
    case CALCULATE_THROW_STR:
-   if(y_value > 600 && has_thrown == false){
+   if(yValue > 600){
     Serial.println("Waiting for release");
-    tState = CALCULATE_THROW_STR;
+    rState = CALCULATE_THROW_STR;
    }
-   else if(y_value <= 599 && has_thrown == false){
+   else if(yValue <= 599){
      Serial.println("Dice has been thrown");
-     has_thrown = true;
-     tState = SET_ROLL_VALUE;
+     //has_thrown = true;
+     rState = WAIT_THROW;
    }
-   break;
-
-   case SET_ROLL_VALUE:
-   //Serial.println("Setting dice value");
-   Serial.println("Current throw strength");
-   Serial.println(current_throw_str);
-   tState = WAIT_THROW;
    break;
   }
 
-  switch(tState){
+  switch(rState){
     case CALCULATE_THROW_STR:
-    if(current_throw_str < 5){
-      current_throw_str += 1;
+    if(currentThrowStr < 5){
+      currentThrowStr += 1;
     }
-    break;
-    
-    case SET_ROLL_VALUE:
-    has_thrown = false;
     break;
   }
 }
@@ -261,19 +247,19 @@ void setup() {
 }
 
 void loop() {
-  y_value = analogRead(A1);
-  digit_tick();
+  yValue = analogRead(A1);
+  digitTick();
 
-  if(shift_elapsedTime >= shiftPeriod){
-    calculate_throw();
-    shift_elapsedTime = 0;
+  if(calculateElapsedTime >= calculatePeriod){
+    calculate_roll();
+    calculateElapsedTime = 0;
   }
-  if(throw_elapsedTime >= throwPeriod){
-    rolling_dice();
-    throw_elapsedTime = 0;
+  if(rollElapsedTimeriod >= rollPeriod){
+    roll_dice();
+    rollElapsedTimeriod = 0;
   }
-  throw_elapsedTime += timerPeriod;
-  shift_elapsedTime += timerPeriod;
+  rollElapsedTimeriod += timerPeriod;
+  calculateElapsedTime += timerPeriod;
   while(!TimerFlag){}
   TimerFlag = 0;
 }
