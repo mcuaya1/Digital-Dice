@@ -3,33 +3,60 @@
 //TA: RB
 //Videos: https://www.youtube.com/watch?v=gj-H_agfd6U
 //Other: Zybboks CHP 7 % 6
+//         https://gist.github.com/mikeputnam/2820675 (pitches.h)
+         
 #include "Timer.h"
-/*
-  TODO:
-    Change state and function names to match their purpose
-    Add Buzzer functionality
-*/
+#include "pitches.h"
 //States
 enum DIGIT_STATE {FIRST_DIGIT, SECOND_DIGIT} dState = FIRST_DIGIT;
 enum ROLLING_STATE {WAIT_THROW, CALCULATE_THROW_STR} rState = WAIT_THROW;
 enum CALCULATE_ROLL_STATE  {WAIT_ROLL, ROLLING_DICE, CALCULATE_ROLL_VALUE, ADD_MODIFIER} sState = WAIT_ROLL;
-int button_value = 0;
+enum VICTORY_THEME_SONG {WAIT_VICTORY_SONG, V_NOTE_ONE, V_NOTE_TWO, V_NOTE_THREE, V_NOTE_FOUR, V_NOTE_FIVE, V_NOTE_SIX} vState = WAIT_VICTORY_SONG;
+enum ROLLING_THEME_SONG {WAIT_ROLL_SONG, PLAY_SONG} rsState = WAIT_ROLL_SONG;
+enum LOSING_THEME_SONG  {WAIT_LOSE_SONG, L_NOTE_ONE, L_NOTE_TWO, L_NOTE_THREE, L_NOTE_FOUR, L_NOTE_FIVE} lState = WAIT_LOSE_SONG;
 
 //Pins
 char digitPins[2] = {13, 12};
 int buzzerPin = 2;
 unsigned int yValue = 0;
 
+//Note arrays
+int rollingNotes[50] = {NOTE_B5, NOTE_C6, NOTE_B5, NOTE_AS5, NOTE_B5, NOTE_AS5, NOTE_A5, NOTE_B5, NOTE_A5,
+                        NOTE_G5, NOTE_A5, NOTE_A5, NOTE_G5, NOTE_B5, NOTE_C6, NOTE_B5, NOTE_AS5, NOTE_B5, NOTE_AS5,
+                        NOTE_A5, NOTE_B5, NOTE_A5, NOTE_G5, NOTE_A5, NOTE_G5, NOTE_B5, NOTE_C6, NOTE_B5, NOTE_AS5, NOTE_B5,
+                        NOTE_AS5, NOTE_A5, NOTE_B5, NOTE_A5, NOTE_G5, NOTE_A5, NOTE_G5, NOTE_F5, NOTE_G5, NOTE_F5, NOTE_E5, 
+                        NOTE_F5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_B4, NOTE_C5};
+
+int losingNote[5] = {NOTE_G4, NOTE_FS4, NOTE_F4, NOTE_D4, NOTE_CS4};
+
+int victoryNotes[6] = {NOTE_C5, NOTE_GS4, NOTE_AS4, NOTE_C5, NOTE_AS4, NOTE_C5};
+
 //Variables
 char first_digit = 0;
 char second_digit = 0;
 char currentThrowStr = 0;
+bool playVictorySong = false;
+bool playRollSong = false;
+bool playLoseSong = false;
 
-unsigned long rollElapsedTimeriod = 500;
+
+//Periods and Elapsed times
+unsigned long rollElapsedTime = 500;
 const unsigned long rollPeriod = 500;
 
 unsigned long calculateElapsedTime = 50;
 const unsigned long calculatePeriod = 50;
+
+
+unsigned long victoryElapsedTime = 100;
+const unsigned long victoryPeriod = 100;
+
+unsigned long losingSongElapsedTime = 100;
+const unsigned long losingSongPeriod = 100;
+
+
+unsigned long rollingSongElapsedTime = 100;
+const unsigned long rollingSongPeriod = 100;
 
 const unsigned long timerPeriod = 10;
 
@@ -75,6 +102,214 @@ void displayNumTo7Seg(unsigned int targetNum, int digitPin) {
 
 }
 
+//Losing theme song, played when roll is < 10
+void losingThemeTick(){
+  static int cnt = 0;
+  static int currNote = 0;
+  switch (lState){
+  case WAIT_LOSE_SONG:
+  if(playLoseSong == true && playRollSong == false){
+    lState = L_NOTE_ONE;
+  }
+  else{
+    lState = WAIT_LOSE_SONG;
+  }
+  break;
+    
+  case L_NOTE_ONE:
+  if(cnt < 2){
+    tone(buzzerPin, losingNote[currNote]);
+    cnt += 1 ;
+    lState = L_NOTE_ONE;
+  }
+  else{
+    cnt = 0;
+    currNote += 1;
+    lState = L_NOTE_TWO;
+  }
+  break;
+
+  case L_NOTE_TWO:
+  if(cnt < 2){
+    tone(buzzerPin, losingNote[currNote]);
+    cnt += 1 ;
+    lState = L_NOTE_TWO;
+  }
+  else{
+    cnt = 0;
+    currNote += 1;
+    lState = L_NOTE_THREE;
+  }
+  break;
+
+  case L_NOTE_THREE:
+  if(cnt < 2){
+    tone(buzzerPin, losingNote[currNote]);
+    cnt += 1 ;
+    lState = L_NOTE_THREE;
+  }
+  else{
+    cnt = 0;
+    currNote += 1;
+    lState = L_NOTE_FOUR;
+  }
+  break;
+
+  case L_NOTE_FOUR:
+  if(cnt < 5){
+    tone(buzzerPin, losingNote[currNote]);
+    cnt += 1 ;
+    lState = L_NOTE_FOUR;
+  }
+  else{
+    cnt = 0;
+    currNote += 1;
+    lState = L_NOTE_FIVE;
+  }
+  break;
+
+  case L_NOTE_FIVE:
+  if(cnt < 5){
+    tone(buzzerPin, losingNote[currNote]);
+    cnt += 1 ;
+    lState = L_NOTE_FIVE;
+  }
+  else{
+    noTone(buzzerPin);
+    cnt = 0;
+    currNote = 0;
+    playLoseSong = false;
+    lState = WAIT_LOSE_SONG;
+  }
+  break;
+ }  
+}
+
+//Rolling song played when dice is release
+void rollingThemeTick(){
+    static int cnt = 0;
+    static int currNote = 0;
+    switch(rsState){
+    case WAIT_ROLL_SONG:
+    if(playRollSong == false){
+      rsState = WAIT_ROLL_SONG;
+    }
+    else{
+      rsState = PLAY_SONG;
+    }
+    break;
+    
+    case PLAY_SONG:
+    if(currNote < 50){
+      tone(buzzerPin, rollingNotes[currNote]);
+      currNote += 1;
+      rsState = PLAY_SONG; 
+    }
+    else{
+     noTone(buzzerPin);
+     currNote = 0;
+     playRollSong = false;
+     rsState = WAIT_ROLL_SONG; 
+    }
+    break;
+  }
+}
+
+//Victory theme song, played when roll is >= 10
+void victoryThemeTick(){
+  static int cnt = 0;
+  static int currNote = 0;
+  switch(vState){
+    case WAIT_VICTORY_SONG:
+    if(playVictorySong == true && playRollSong == false){
+      vState = V_NOTE_ONE;
+    }
+    else{
+      vState = WAIT_VICTORY_SONG;
+    }
+    break;
+  
+    case V_NOTE_ONE:
+    if(cnt < 7){
+      tone(buzzerPin, victoryNotes[currNote]);
+      cnt += 1;
+      vState = V_NOTE_ONE;
+    }
+    else{
+      cnt = 0;
+      currNote += 1;
+      vState = V_NOTE_TWO;  
+    }
+    break;
+  
+    case V_NOTE_TWO:
+    if(cnt < 4){
+      tone(buzzerPin, victoryNotes[currNote]);
+      cnt += 1;
+      vState = V_NOTE_TWO;
+    }
+    else{
+      cnt = 0;
+      currNote += 1;
+      vState = V_NOTE_THREE;
+    }
+    break; 
+
+   case V_NOTE_THREE:
+   if(cnt < 4){
+     tone(buzzerPin, victoryNotes[currNote]);
+     cnt += 1;
+     vState = V_NOTE_THREE;
+   }
+   else{
+    cnt = 0;
+    currNote += 1;
+    vState = V_NOTE_FOUR;  
+   }
+   break;
+
+  case V_NOTE_FOUR:
+  if(cnt < 3){
+    tone(buzzerPin, victoryNotes[currNote]);
+    cnt += 1;
+    vState = V_NOTE_FOUR;
+  }
+  else{
+    cnt = 0;
+    currNote += 1;
+    vState = V_NOTE_FIVE;  
+  }
+  break;
+
+  case V_NOTE_FIVE:
+  if(cnt < 1){
+    tone(buzzerPin, victoryNotes[currNote]);
+    cnt += 1;
+    vState = V_NOTE_FIVE;
+  }
+  else{
+    cnt = 0;
+    currNote = 0;
+    vState = V_NOTE_SIX;  
+  }
+  break;
+
+  case V_NOTE_SIX:
+  if(cnt < 10){
+    tone(buzzerPin, 523);
+    cnt += 1;
+    vState = V_NOTE_SIX;
+  }
+  else{
+    playVictorySong = false;
+    cnt = 0;
+    noTone(buzzerPin);
+    vState = WAIT_VICTORY_SONG;  
+  }
+  break;
+ }
+}
+
 //State to handle digit LED
 void digitTick(){
   switch(dState){
@@ -110,11 +345,11 @@ void calculate_roll(){
     static int cnt = 0;
     switch(sState){
       case WAIT_ROLL:
-      if(yValue <= 599){
+      if(yValue <= 599 && ( playVictorySong == false && playRollSong == false && playLoseSong == false)){
         Serial.println("Waiting for dice to be picked up");
         sState = WAIT_ROLL;
       }
-      else if(yValue > 600){
+      else if(yValue > 600 && (playVictorySong == false && playRollSong == false && playLoseSong == false)){
         Serial.println("Dice has been picked up");
         sState = ROLLING_DICE;
       }
@@ -132,8 +367,8 @@ void calculate_roll(){
       break;
 
       case CALCULATE_ROLL_VALUE:
-      if(cnt < 40){
-          Serial.println("Slowing roll");
+      if(cnt < 100){
+          playRollSong = true;
           cnt += 1;
           sState = CALCULATE_ROLL_VALUE;
         }
@@ -177,15 +412,18 @@ void calculate_roll(){
 
      case ADD_MODIFIER:
      if(diceRoll + currentThrowStr >= 20){
+      playVictorySong = true;
       diceRoll = 20;
      }
      else {
         diceRoll += currentThrowStr;
         if(diceRoll < 10){
+          playLoseSong = true;
           first_digit = 0;
           second_digit = diceRoll % 10;  
         }
         else{
+          playVictorySong = true;
           first_digit = int(diceRoll/10);
           second_digit = diceRoll % 10;  
         }
@@ -198,11 +436,11 @@ void calculate_roll(){
 void roll_dice(){
    switch(rState){
     case WAIT_THROW:
-    if(yValue <= 599){
+    if(yValue <= 599 && (playVictorySong == false && playRollSong == false)){
       Serial.println("Waiting for dice to be picked up");
       rState = WAIT_THROW;
     }
-    else if(yValue > 600){
+    else if(yValue > 600 && (playVictorySong == false && playRollSong == false)){
       Serial.println("Dice has been picked up");
       rState = CALCULATE_THROW_STR;
     }
@@ -254,12 +492,28 @@ void loop() {
     calculate_roll();
     calculateElapsedTime = 0;
   }
-  if(rollElapsedTimeriod >= rollPeriod){
+  if(rollElapsedTime >= rollPeriod){
     roll_dice();
-    rollElapsedTimeriod = 0;
+    rollElapsedTime = 0;
   }
-  rollElapsedTimeriod += timerPeriod;
+  if(rollingSongElapsedTime >= rollingSongPeriod){
+    rollingThemeTick();
+    rollingSongElapsedTime = 0;
+  }
+
+ if(losingSongElapsedTime >= losingSongPeriod){
+    losingThemeTick();
+    losingSongElapsedTime = 0;
+  }
+  if(victoryElapsedTime >= victoryPeriod){
+    victoryThemeTick();
+    victoryElapsedTime = 0;
+  }
+  rollElapsedTime += timerPeriod;
   calculateElapsedTime += timerPeriod;
+  victoryElapsedTime += timerPeriod;
+  rollingSongElapsedTime += timerPeriod;
+  losingSongElapsedTime += timerPeriod;
   while(!TimerFlag){}
   TimerFlag = 0;
 }
