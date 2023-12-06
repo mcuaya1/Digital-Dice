@@ -453,7 +453,6 @@ void roll_dice(){
    }
    else if(yValue <= 599){
      Serial.println("Dice has been thrown");
-     //has_thrown = true;
      rState = WAIT_THROW;
    }
    break;
