@@ -9,7 +9,8 @@ The system works by using conccurrent state machine logic with some states using
 The ROLLING_STATE machine checks for changes in the joystick's y axis, and if the joystick's y axis exceeds 600 (indicating the joystick is being pushed up), the state machine will begin transitioning into another state, which calculates the strength of the dice roll. Once the dice have been thrown, the CALCULATE_ROLL_STATE machine will shift through random values for 5 seconds while writing to global variables that store the value that will be displayed on the LED display. After 5 seconds, the CALCULATE_ROLL_STATE machine will then transition into another state that calculates the value of the dice roll, adding the strength modifier to the value of the dice roll as well. The state then writes this value to the global variables that the DIGIT_STATE machine uses to output onto the LED display by shifting between two states that handle displaying the appropriate digit at the appropriate time. The last three states machines in the program handle song output and simply use boolen flags to indicate when a song should be played or not.
 
 ### Video demonstration
-[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/_TLMPbpP9Zc&feature=youtu.be/0.jpg)](https://www.youtube.com/watch?v=_TLMPbpP9Zc&feature=youtu.be)
+_TLMPbpP9Zc&feature=youtu.be
+[![Video demonstration](https://img.youtube.com/vi/_TLMPbpP9Zc/0.jpg)](https://www.youtube.com/watch?v=_TLMPbpP9Zc&feature=youtu.be)
 
 ### Circuit diagram
 Coming soon...
